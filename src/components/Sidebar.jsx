@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { X, LayoutDashboard, ClipboardList, PlusCircle, Bell, Settings } from 'lucide-react'
+import { X, LayoutDashboard, ClipboardList, PlusCircle, Bell, Settings, Shield, FileText } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
@@ -10,8 +10,15 @@ const navItems = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
+const adminNavItems = [
+  { to: '/admin', label: 'Admin Dashboard', icon: Shield },
+  { to: '/admin/reports', label: 'All Reports', icon: FileText },
+]
+
 export default function Sidebar({ isOpen, onClose }) {
   const { profile, user } = useAuth()
+  const isAdmin = profile?.role === 'admin'
+
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
@@ -38,7 +45,7 @@ export default function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-6 flex flex-col gap-1">
+        <nav className="flex-1 px-3 py-6 flex flex-col gap-1 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -56,6 +63,31 @@ export default function Sidebar({ isOpen, onClose }) {
               {label}
             </NavLink>
           ))}
+
+          {isAdmin && (
+            <>
+              <div className="text-white/40 text-xs font-medium uppercase tracking-wider px-3 pt-5 pb-2">
+                Admin
+              </div>
+              {adminNavItems.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${
+                      isActive
+                        ? 'bg-white/15 text-white font-medium'
+                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                  {label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="border-t border-white/10 p-4">
