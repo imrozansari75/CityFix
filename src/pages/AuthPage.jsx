@@ -1,62 +1,53 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
-import { supabase } from "../lib/supabase";
+import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash } from 'react-icons/fa'
+import { useAuth } from '../context/AuthContext'
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  const location = useLocation()
+  const [isLogin, setIsLogin] = useState(location.pathname !== '/signup')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const navigate = useNavigate()
+  const { signIn, signUp } = useAuth()
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  })
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(null);
-  };
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+    setError(null)
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        if (error) throw error;
-        navigate("/dashboard");
+        await signIn(formData.email, formData.password)
+        navigate('/dashboard')
       } else {
         if (formData.password !== formData.confirmPassword) {
-          throw new Error("Passwords do not match");
+          throw new Error('Passwords do not match')
         }
-        const { error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: { name: formData.name },
-          },
-        });
-        if (error) throw error;
-        navigate("/dashboard");
+        await signUp(formData.email, formData.password, formData.name)
+        navigate('/dashboard')
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -70,8 +61,8 @@ export default function AuthPage() {
           </div>
           <p className="text-gray-500 text-sm">
             {isLogin
-              ? "Welcome back! Sign in to your account"
-              : "Create an account to get started"
+              ? 'Welcome back! Sign in to your account'
+              : 'Create an account to get started'
             }
           </p>
         </div>
@@ -80,8 +71,8 @@ export default function AuthPage() {
           <div className="flex mb-8 bg-gray-100 rounded-lg p-1">
             <button
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isLogin
-                  ? "bg-white shadow-sm text-blue-600"
-                  : "text-gray-500"
+                  ? 'bg-white shadow-sm text-blue-600'
+                  : 'text-gray-500'
                 }`}
               onClick={() => setIsLogin(true)}
             >
@@ -89,8 +80,8 @@ export default function AuthPage() {
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isLogin
-                  ? "bg-white shadow-sm text-blue-600"
-                  : "text-gray-500"
+                  ? 'bg-white shadow-sm text-blue-600'
+                  : 'text-gray-500'
                 }`}
               onClick={() => setIsLogin(false)}
             >
@@ -144,7 +135,7 @@ export default function AuthPage() {
               <div className="relative">
                 <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
@@ -170,7 +161,7 @@ export default function AuthPage() {
                 <div className="relative">
                   <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                   <input
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
@@ -207,24 +198,24 @@ export default function AuthPage() {
               className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading
-                ? "Please wait..."
+                ? 'Please wait...'
                 : isLogin
-                  ? "Sign In"
-                  : "Create Account"}
+                  ? 'Sign In'
+                  : 'Create Account'}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            {isLogin ? "Don't have an account? " : 'Already have an account? '}
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-blue-600 font-medium hover:underline cursor-pointer"
             >
-              {isLogin ? "Create one" : "Sign in"}
+              {isLogin ? 'Create one' : 'Sign in'}
             </button>
           </p>
         </div>
       </div>
     </div>
-  );
+  )
 }

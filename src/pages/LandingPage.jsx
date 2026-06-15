@@ -103,7 +103,7 @@ function Field({ label, placeholder }) {
   );
 }
 
-function FeatureItem({ icon, title, text }) {
+function FeatureItem({ title, text }) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
