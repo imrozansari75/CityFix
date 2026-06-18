@@ -12,6 +12,7 @@ import Settings from './pages/Settings'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminReports from './pages/admin/AdminReports'
 import ReportDetail from './pages/admin/ReportDetail'
+import AdminLogin from './pages/AdminLogin'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/submit-report" element={<ProtectedRoute><SubmitReport /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
         <Route path="/admin/reports/:id" element={<AdminRoute><ReportDetail /></AdminRoute>} />
