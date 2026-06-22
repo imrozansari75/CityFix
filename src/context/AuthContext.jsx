@@ -17,8 +17,11 @@ export function AuthProvider({ children }) {
 
     if (data && !error) {
       setProfile(data)
+      setLoading(false)
+      return data
     }
     setLoading(false)
+    return null
   }
 
   useEffect(() => {
@@ -67,6 +70,9 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    if (data?.user) {
+      await fetchProfile(data.user.id)
+    }
     return data
   }
 

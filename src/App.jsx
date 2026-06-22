@@ -12,6 +12,13 @@ import Settings from './pages/Settings'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminReports from './pages/admin/AdminReports'
 import ReportDetail from './pages/admin/ReportDetail'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminCategories from './pages/admin/AdminCategories'
+import AdminRoles from './pages/admin/AdminRoles'
+import AdminStatistics from './pages/admin/AdminStatistics'
+import AdminReportsOverview from './pages/admin/AdminReportsOverview'
+import AdminSettings from './pages/admin/AdminSettings'
+import AdminLogs from './pages/admin/AdminLogs'
 import AdminLogin from './pages/AdminLogin'
 
 export default function App() {
@@ -30,6 +37,13 @@ export default function App() {
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
         <Route path="/admin/reports/:id" element={<AdminRoute><ReportDetail /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
+        <Route path="/admin/roles" element={<AdminRoute><AdminRoles /></AdminRoute>} />
+        <Route path="/admin/statistics" element={<AdminRoute><AdminStatistics /></AdminRoute>} />
+        <Route path="/admin/reports-overview" element={<AdminRoute><AdminReportsOverview /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+        <Route path="/admin/logs" element={<AdminRoute><AdminLogs /></AdminRoute>} />
       </Routes>
     </AuthProvider>
   )

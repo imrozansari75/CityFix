@@ -1,148 +1,137 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Send, Clock, CheckCircle, MapPin, Calendar, Users } from 'lucide-react'
+import { LayoutDashboard, Send, Clock, CheckCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import Sidebar from '../../components/Sidebar'
-import TopNavbar from '../../components/TopNavbar'
+import { useAuth } from '../../context/AuthContext'
+import AdminLayout from '../../components/admin/AdminLayout'
+import WelcomeHeader from '../../components/admin/WelcomeHeader'
 import StatsCard from '../../components/StatsCard'
-import StatusBadge from '../../components/StatusBadge'
+import ResolutionRateWidget from '../../components/admin/ResolutionRateWidget'
+import ActiveCitizensWidget from '../../components/admin/ActiveCitizensWidget'
+import CategoryChart from '../../components/admin/CategoryChart'
+import RecentReports from '../../components/admin/RecentReports'
+import RecentUsers from '../../components/admin/RecentUsers'
+import DashboardSkeleton from '../../components/admin/DashboardSkeleton'
+import {
+  getMonthRange,
+  isInRange,
+  calcTrend,
+  buildCategoryChartData,
+  buildMonthlyActivity,
+} from '../../lib/adminUtils'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [stats, setStats] = useState({ total: 0, submitted: 0, inProgress: 0, resolved: 0 })
-  const [recentReports, setRecentReports] = useState([])
-  const [userCount, setUserCount] = useState(0)
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ total: 0, submitted: 0, inProgress: 0, resolved: 0 })
+  const [trends, setTrends] = useState({ total: '0%', submitted: '0%', inProgress: '0%', resolved: '0%' })
+  const [resolutionRate, setResolutionRate] = useState(0)
+  const [resolutionTrend, setResolutionTrend] = useState('0%')
+  const [activeCitizens, setActiveCitizens] = useState(0)
+  const [activeCitizensTrend, setActiveCitizensTrend] = useState('0%')
+  const [monthlyActivity, setMonthlyActivity] = useState([])
+  const [categoryData, setCategoryData] = useState([])
+  const [recentReports, setRecentReports] = useState([])
+  const [recentUsers, setRecentUsers] = useState([])
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
+  const firstName = profile?.full_name?.split(' ')[0] || 'Admin'
 
-      const { data: allReports } = await supabase
-        .from('reports')
-        .select('*, profiles(full_name)')
-        .order('created_at', { ascending: false })
+  const fetchData = useCallback(async () => {
+    setLoading(true)
 
-      if (allReports) {
-        setStats({
-          total: allReports.length,
-          submitted: allReports.filter((r) => r.status === 'Submitted').length,
-          inProgress: allReports.filter((r) => r.status === 'In Progress').length,
-          resolved: allReports.filter((r) => r.status === 'Resolved').length,
-        })
-        setRecentReports(allReports.slice(0, 5))
-      }
+    const [reportsRes, usersRes] = await Promise.all([
+      supabase.from('reports').select('*, profiles(full_name)').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(5),
+    ])
 
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
+    const allReports = reportsRes.data || []
+    const currentMonth = getMonthRange(0)
+    const prevMonth = getMonthRange(-1)
 
-      if (count !== null) setUserCount(count)
+    const countByStatus = (reports, status) =>
+      reports.filter((r) => r.status === status).length
 
-      setLoading(false)
-    }
+    const currentReports = allReports.filter((r) => isInRange(r.created_at, currentMonth.start, currentMonth.end))
+    const prevReports = allReports.filter((r) => isInRange(r.created_at, prevMonth.start, prevMonth.end))
 
-    fetchData()
+    const total = allReports.length
+    const submitted = countByStatus(allReports, 'Submitted')
+    const inProgress = countByStatus(allReports, 'In Progress')
+    const resolved = countByStatus(allReports, 'Resolved')
+
+    setStats({ total, submitted, inProgress, resolved })
+    setTrends({
+      total: calcTrend(currentReports.length, prevReports.length),
+      submitted: calcTrend(countByStatus(currentReports, 'Submitted'), countByStatus(prevReports, 'Submitted')),
+      inProgress: calcTrend(countByStatus(currentReports, 'In Progress'), countByStatus(prevReports, 'In Progress')),
+      resolved: calcTrend(countByStatus(currentReports, 'Resolved'), countByStatus(prevReports, 'Resolved')),
+    })
+
+    const rate = total > 0 ? Math.round((resolved / total) * 100) : 0
+    const prevRate = prevReports.length > 0
+      ? Math.round((countByStatus(prevReports, 'Resolved') / prevReports.length) * 100)
+      : 0
+    setResolutionRate(rate)
+    setResolutionTrend(calcTrend(rate, prevRate))
+
+    const currentActive = new Set(
+      allReports.filter((r) => isInRange(r.created_at, currentMonth.start, currentMonth.end)).map((r) => r.user_id)
+    ).size
+    const prevActive = new Set(
+      allReports.filter((r) => isInRange(r.created_at, prevMonth.start, prevMonth.end)).map((r) => r.user_id)
+    ).size
+    setActiveCitizens(currentActive)
+    setActiveCitizensTrend(calcTrend(currentActive, prevActive))
+    setMonthlyActivity(buildMonthlyActivity(allReports))
+    setCategoryData(buildCategoryChartData(allReports))
+    setRecentReports(allReports.slice(0, 5))
+    setRecentUsers(usersRes.data || [])
+
+    setLoading(false)
   }, [])
 
-  function formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const statCards = [
-    { icon: LayoutDashboard, label: 'Total Reports', value: String(stats.total), subtitle: 'All time', bgColor: 'bg-blue-50', iconColor: 'text-blue-600' },
-    { icon: Send, label: 'Submitted', value: String(stats.submitted), subtitle: 'Awaiting review', bgColor: 'bg-purple-50', iconColor: 'text-purple-600' },
-    { icon: Clock, label: 'In Progress', value: String(stats.inProgress), subtitle: 'Under review', bgColor: 'bg-amber-50', iconColor: 'text-amber-600' },
-    { icon: CheckCircle, label: 'Resolved', value: String(stats.resolved), subtitle: 'Successfully fixed', bgColor: 'bg-green-50', iconColor: 'text-green-600' },
+    { icon: LayoutDashboard, label: 'Total Reports', value: String(stats.total), trend: trends.total, bgColor: 'bg-blue-50', iconColor: 'text-blue-600', filter: 'All' },
+    { icon: Send, label: 'Submitted', value: String(stats.submitted), trend: trends.submitted, bgColor: 'bg-purple-50', iconColor: 'text-purple-600', filter: 'Submitted' },
+    { icon: Clock, label: 'In Progress', value: String(stats.inProgress), trend: trends.inProgress, bgColor: 'bg-amber-50', iconColor: 'text-amber-600', filter: 'In Progress' },
+    { icon: CheckCircle, label: 'Resolved', value: String(stats.resolved), trend: trends.resolved, bgColor: 'bg-green-50', iconColor: 'text-green-600', filter: 'Resolved' },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-h-screen">
-        <TopNavbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-1">Overview of all reports and platform activity.</p>
-            </div>
+    <AdminLayout>
+      <WelcomeHeader name={firstName} onRefresh={fetchData} refreshing={loading} />
 
-            {loading ? (
-              <div className="flex justify-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  {statCards.map((stat) => (
-                    <StatsCard key={stat.label} {...stat} />
-                  ))}
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-                      <Users size={20} className="text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Total Users</p>
-                      <p className="text-xl font-bold text-gray-900">{userCount}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-xl border border-gray-100 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
-                    <button onClick={() => navigate('/admin/reports')} className="text-sm text-blue-600 hover:underline">
-                      View All
-                    </button>
-                  </div>
-
-                  {recentReports.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">No reports submitted yet.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentReports.map((report) => (
-                        <div
-                          key={report.id}
-                          onClick={() => navigate(`/admin/reports/${report.id}`)}
-                          className="flex items-start justify-between gap-3 p-3 rounded-lg hover:bg-gray-50 transition cursor-pointer"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <p className="text-sm font-medium text-gray-900 truncate">{report.title}</p>
-                              <StatusBadge status={report.status} />
-                            </div>
-                            <p className="text-xs text-gray-400 mb-1">
-                              {report.category} &middot; by {report.profiles?.full_name || 'Unknown'}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs text-gray-400">
-                              <span className="flex items-center gap-1">
-                                <MapPin size={12} />
-                                {report.location}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar size={12} />
-                                {formatDate(report.created_at)}
-                              </span>
-                            </div>
-                          </div>
-                          {report.image_url && (
-                            <img src={report.image_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+      {loading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {statCards.map((stat) => (
+              <StatsCard
+                key={stat.label}
+                {...stat}
+                onClick={() => navigate(`/admin/reports?status=${encodeURIComponent(stat.filter)}`)}
+              />
+            ))}
           </div>
-        </main>
-      </div>
-    </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <ResolutionRateWidget rate={resolutionRate} trend={resolutionTrend} />
+            <ActiveCitizensWidget count={activeCitizens} chartData={monthlyActivity} trend={activeCitizensTrend} />
+            <CategoryChart data={categoryData} />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <RecentReports reports={recentReports} />
+            <RecentUsers users={recentUsers} />
+          </div>
+        </>
+      )}
+    </AdminLayout>
   )
 }

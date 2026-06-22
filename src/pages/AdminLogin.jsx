@@ -29,22 +29,27 @@ export default function AdminLogin() {
     setError(null)
 
     try {
-      const { data } = await signIn(formData.email, formData.password)
+      const { user: authUser } = await signIn(formData.email, formData.password)
 
-      if (data?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single()
+      if (!authUser) return
 
-        if (profileData?.role !== 'admin') {
-          await supabase.auth.signOut()
-          throw new Error('Access denied. Admin privileges required.')
-        }
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authUser.id)
+        .single()
 
-        navigate('/admin', { replace: true })
+      if (profileError) {
+        await supabase.auth.signOut()
+        throw new Error('Could not verify admin access. Check your profile and database permissions.')
       }
+
+      if (profileData?.role !== 'admin') {
+        await supabase.auth.signOut()
+        throw new Error('Access denied. Admin privileges required.')
+      }
+
+      navigate('/admin', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {
